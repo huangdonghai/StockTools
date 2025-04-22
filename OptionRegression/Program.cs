@@ -61,7 +61,13 @@ internal class Program
 
             TwoDirection(records);
 
+            WeeklyTwoDirection(records);
+
             LongOnly(records);
+
+            WeeklyLongOnly(records);
+
+            MonthlyLongOnly(records);
         }
 
     }
@@ -72,6 +78,8 @@ internal class Program
         OptionEarned = 0;
         StockEarned = 0;
         CurrentHoldVolumn = 0;
+
+        Console.WriteLine("====TwoDirection====");
 
         foreach (var record in records)
         {
@@ -180,6 +188,7 @@ internal class Program
         StockEarned = 0;
         CurrentHoldVolumn = 0;
 
+        Console.WriteLine("====LongOnly====");
         foreach (var record in records)
         {
 
@@ -195,8 +204,8 @@ internal class Program
                     CurrentBalance -= EachBuyVolumn * price;
                     Console.WriteLine($"Buy {EachBuyVolumn} at {price}");
 
-                    CurrentBalance += OptionPrice * record.OpeningPrice * EachBuyVolumn; // add call earning
-                    OptionEarned += OptionPrice * record.OpeningPrice * EachBuyVolumn;
+                    //CurrentBalance += OptionPrice * record.OpeningPrice * EachBuyVolumn; // add call earning
+                    //OptionEarned += OptionPrice * record.OpeningPrice * EachBuyVolumn;
                 }
 #if false
                 else if (diff > OptionPrice * record.OpeningPrice)
@@ -284,5 +293,359 @@ internal class Program
         Console.WriteLine($"Option Earned: {OptionEarned}");
         Console.WriteLine($"Stock Earned: {StockEarned}");
         Console.WriteLine($"Current Hold Volumn: {CurrentHoldVolumn}");
+    }
+
+    static void WeeklyTwoDirection(List<Record> records)
+    {
+        CurrentBalance = 0;
+        OptionEarned = 0;
+        StockEarned = 0;
+        CurrentHoldVolumn = 0;
+        OptionPrice *= 4;
+
+        Console.WriteLine("====WeeklyTwoDirection====");
+        for (int i = 0; i < records.Count - 5; i += 5)
+        {
+            var rec1 = records[i];
+            var rec2 = records[i + 5];
+            if (CurrentHoldVolumn == 0)
+            {
+                var diff = rec2.ClosingPrice - rec1.OpeningPrice;
+                if (diff < -OptionPrice * rec1.OpeningPrice)
+                {
+                    // Buy
+                    CurrentHoldVolumn = EachBuyVolumn;
+                    double price = rec1.OpeningPrice * (1.0 - OptionPrice);
+                    LastPrice = price;
+                    CurrentBalance -= EachBuyVolumn * price;
+                    Console.WriteLine($"Buy {EachBuyVolumn} at {price}");
+
+                    CurrentBalance += OptionPrice * rec1.OpeningPrice * EachBuyVolumn; // add call earning
+                    OptionEarned += OptionPrice * rec1.OpeningPrice * EachBuyVolumn;
+                }
+#if true
+                else if (diff > OptionPrice * rec1.OpeningPrice)
+                {
+                    // Sell
+                    CurrentHoldVolumn = -EachBuyVolumn;
+                    double price = rec1.OpeningPrice * (1.0 + OptionPrice);
+                    LastPrice = price;
+                    CurrentBalance += EachBuyVolumn * price;
+                    Console.WriteLine($"Sell {EachBuyVolumn} at {price}");
+
+                    CurrentBalance += OptionPrice * rec1.OpeningPrice * EachBuyVolumn; // add put earning
+                    OptionEarned += OptionPrice * rec1.OpeningPrice * EachBuyVolumn;
+                }
+#endif
+                else
+                {
+                    CurrentBalance += 1 * OptionPrice * rec1.OpeningPrice * EachBuyVolumn; // add call and put earning
+                    OptionEarned += 1 * OptionPrice * rec1.OpeningPrice * EachBuyVolumn;
+                }
+
+                continue;
+            }
+
+            if (CurrentHoldVolumn > 0)
+            {
+                Debug.Assert(CurrentHoldVolumn == EachBuyVolumn);
+
+                // sell call only
+                var diff = rec2.ClosingPrice - rec1.OpeningPrice;
+
+                // call selled
+                if (diff > OptionPrice * rec1.OpeningPrice)
+                {
+                    // Sell
+                    double price = rec1.OpeningPrice * (1.0 + OptionPrice);
+                    double earned = (price - LastPrice) * EachBuyVolumn;
+
+                    if (false && earned < 0)
+                        continue; // if lose money, do nothing
+
+                    CurrentHoldVolumn -= EachBuyVolumn;
+                    CurrentBalance += EachBuyVolumn * price;
+                    StockEarned += earned;
+                    Console.WriteLine($"Sell {EachBuyVolumn} at {price} earned {earned}");
+                }
+                else
+                {
+                    // don't sell, earn call option
+                    CurrentBalance += OptionPrice * rec1.OpeningPrice * EachBuyVolumn; // add call and put earning
+                    OptionEarned += OptionPrice * rec1.OpeningPrice * EachBuyVolumn;
+                }
+                continue;
+            }
+
+            if (CurrentHoldVolumn < 0)
+            {
+                Debug.Assert(CurrentHoldVolumn == -EachBuyVolumn);
+
+                // sell put only
+                var diff = rec2.ClosingPrice - rec1.OpeningPrice;
+
+                // put selled
+                if (diff < -OptionPrice * rec1.OpeningPrice)
+                {
+                    // buy
+                    CurrentHoldVolumn += EachBuyVolumn;
+                    double price = rec1.OpeningPrice * (1.0 - OptionPrice);
+                    CurrentBalance -= EachBuyVolumn * price;
+                    double earned = (LastPrice - price) * EachBuyVolumn;
+                    StockEarned += earned;
+                    Console.WriteLine($"Buy {EachBuyVolumn} at {price} earned {earned}");
+                }
+                else
+                {
+                    // don't sell, earn put option
+                    CurrentBalance += OptionPrice * rec1.OpeningPrice * EachBuyVolumn; // add call and put earning
+                    OptionEarned += OptionPrice * rec1.OpeningPrice * EachBuyVolumn;
+                }
+                continue;
+            }
+        }
+        Console.WriteLine($"Start Money: {StartMoney}");
+        Console.WriteLine($"Balance: {CurrentBalance}");
+        Console.WriteLine($"Option Earned: {OptionEarned}");
+        Console.WriteLine($"Stock Earned: {StockEarned}");
+        Console.WriteLine($"Current Hold Volumn: {CurrentHoldVolumn}");
+
+        OptionPrice /= 4; // reset option price
+    }
+
+    static void WeeklyLongOnly(List<Record> records)
+    {
+        CurrentBalance = 0;
+        OptionEarned = 0;
+        StockEarned = 0;
+        CurrentHoldVolumn = 0;
+        OptionPrice *= 4;
+
+        Console.WriteLine("====WeeklyLongOnly====");
+        for (int i = 0; i < records.Count - 5; i+=5)
+        {
+            var rec1 = records[i];
+            var rec2 = records[i + 5];
+            if (CurrentHoldVolumn == 0)
+            {
+                var diff = rec2.ClosingPrice - rec1.OpeningPrice;
+                if (diff < -OptionPrice * rec1.OpeningPrice)
+                {
+                    // Buy
+                    CurrentHoldVolumn = EachBuyVolumn;
+                    double price = rec1.OpeningPrice * (1.0 - OptionPrice);
+                    LastPrice = price;
+                    CurrentBalance -= EachBuyVolumn * price;
+                    Console.WriteLine($"Buy {EachBuyVolumn} at {price}");
+
+                    //CurrentBalance += OptionPrice * rec1.OpeningPrice * EachBuyVolumn; // add call earning
+                    //OptionEarned += OptionPrice * rec1.OpeningPrice * EachBuyVolumn;
+                }
+#if false
+                else if (diff > OptionPrice * record.OpeningPrice)
+                {
+                    // Sell
+                    CurrentHoldVolumn = -EachBuyVolumn;
+                    double price = record.OpeningPrice * (1.0 + OptionPrice);
+                    LastPrice = price;
+                    CurrentBalance += EachBuyVolumn * price;
+                    Console.WriteLine($"Sell {EachBuyVolumn} at {price}");
+
+                    CurrentBalance += OptionPrice * record.OpeningPrice * EachBuyVolumn; // add put earning
+                    OptionEarned += OptionPrice * record.OpeningPrice * EachBuyVolumn;
+                }
+#endif
+                else
+                {
+                    CurrentBalance += 1 * OptionPrice * rec1.OpeningPrice * EachBuyVolumn; // add call and put earning
+                    OptionEarned += 1 * OptionPrice * rec1.OpeningPrice * EachBuyVolumn;
+                }
+
+                continue;
+            }
+
+            if (CurrentHoldVolumn > 0)
+            {
+                Debug.Assert(CurrentHoldVolumn == EachBuyVolumn);
+
+                // sell call only
+                var diff = rec2.ClosingPrice - rec1.OpeningPrice;
+
+                // call selled
+                if (diff > OptionPrice * rec1.OpeningPrice)
+                {
+                    // Sell
+                    double price = rec1.OpeningPrice * (1.0 + OptionPrice);
+                    double earned = (price - LastPrice) * EachBuyVolumn;
+
+                    if (false && earned < 0)
+                        continue; // if lose money, do nothing
+
+                    CurrentHoldVolumn -= EachBuyVolumn;
+                    CurrentBalance += EachBuyVolumn * price;
+                    StockEarned += earned;
+                    Console.WriteLine($"Sell {EachBuyVolumn} at {price} earned {earned}");
+                }
+                else
+                {
+                    // don't sell, earn call option
+                    CurrentBalance += OptionPrice * rec1.OpeningPrice * EachBuyVolumn; // add call and put earning
+                    OptionEarned += OptionPrice * rec1.OpeningPrice * EachBuyVolumn;
+                }
+                continue;
+            }
+
+            if (CurrentHoldVolumn < 0)
+            {
+                Debug.Assert(CurrentHoldVolumn == -EachBuyVolumn);
+
+                // sell put only
+                var diff = rec2.ClosingPrice - rec1.OpeningPrice;
+
+                // put selled
+                if (diff < -OptionPrice * rec1.OpeningPrice)
+                {
+                    // buy
+                    CurrentHoldVolumn += EachBuyVolumn;
+                    double price = rec1.OpeningPrice * (1.0 - OptionPrice);
+                    CurrentBalance -= EachBuyVolumn * price;
+                    double earned = (LastPrice - price) * EachBuyVolumn;
+                    StockEarned += earned;
+                    Console.WriteLine($"Buy {EachBuyVolumn} at {price} earned {earned}");
+                }
+                else
+                {
+                    // don't sell, earn put option
+                    CurrentBalance += OptionPrice * rec1.OpeningPrice * EachBuyVolumn; // add call and put earning
+                    OptionEarned += OptionPrice * rec1.OpeningPrice * EachBuyVolumn;
+                }
+                continue;
+            }
+        }
+        Console.WriteLine($"Start Money: {StartMoney}");
+        Console.WriteLine($"Balance: {CurrentBalance}");
+        Console.WriteLine($"Option Earned: {OptionEarned}");
+        Console.WriteLine($"Stock Earned: {StockEarned}");
+        Console.WriteLine($"Current Hold Volumn: {CurrentHoldVolumn}");
+
+        OptionPrice /= 4; // reset option price
+    }
+
+    static void MonthlyLongOnly(List<Record> records)
+    {
+        CurrentBalance = 0;
+        OptionEarned = 0;
+        StockEarned = 0;
+        CurrentHoldVolumn = 0;
+        OptionPrice *= 8;
+
+        Console.WriteLine("====MonthlyLongOnly====");
+        for (int i = 0; i < records.Count - 20; i += 20)
+        {
+            var rec1 = records[i];
+            var rec2 = records[i + 20];
+            if (CurrentHoldVolumn == 0)
+            {
+                var diff = rec2.ClosingPrice - rec1.OpeningPrice;
+                if (diff < -OptionPrice * rec1.OpeningPrice)
+                {
+                    // Buy
+                    CurrentHoldVolumn = EachBuyVolumn;
+                    double price = rec1.OpeningPrice * (1.0 - OptionPrice);
+                    LastPrice = price;
+                    CurrentBalance -= EachBuyVolumn * price;
+                    Console.WriteLine($"Buy {EachBuyVolumn} at {price}");
+
+                    //CurrentBalance += OptionPrice * rec1.OpeningPrice * EachBuyVolumn; // add call earning
+                    //OptionEarned += OptionPrice * rec1.OpeningPrice * EachBuyVolumn;
+                }
+#if false
+                else if (diff > OptionPrice * record.OpeningPrice)
+                {
+                    // Sell
+                    CurrentHoldVolumn = -EachBuyVolumn;
+                    double price = record.OpeningPrice * (1.0 + OptionPrice);
+                    LastPrice = price;
+                    CurrentBalance += EachBuyVolumn * price;
+                    Console.WriteLine($"Sell {EachBuyVolumn} at {price}");
+
+                    CurrentBalance += OptionPrice * record.OpeningPrice * EachBuyVolumn; // add put earning
+                    OptionEarned += OptionPrice * record.OpeningPrice * EachBuyVolumn;
+                }
+#endif
+                else
+                {
+                    CurrentBalance += 1 * OptionPrice * rec1.OpeningPrice * EachBuyVolumn; // add call and put earning
+                    OptionEarned += 1 * OptionPrice * rec1.OpeningPrice * EachBuyVolumn;
+                }
+
+                continue;
+            }
+
+            if (CurrentHoldVolumn > 0)
+            {
+                Debug.Assert(CurrentHoldVolumn == EachBuyVolumn);
+
+                // sell call only
+                var diff = rec2.ClosingPrice - rec1.OpeningPrice;
+
+                // call selled
+                if (diff > OptionPrice * rec1.OpeningPrice)
+                {
+                    // Sell
+                    double price = rec1.OpeningPrice * (1.0 + OptionPrice);
+                    double earned = (price - LastPrice) * EachBuyVolumn;
+
+                    if (false && earned < 0)
+                        continue; // if lose money, do nothing
+
+                    CurrentHoldVolumn -= EachBuyVolumn;
+                    CurrentBalance += EachBuyVolumn * price;
+                    StockEarned += earned;
+                    Console.WriteLine($"Sell {EachBuyVolumn} at {price} earned {earned}");
+                }
+                else
+                {
+                    // don't sell, earn call option
+                    CurrentBalance += OptionPrice * rec1.OpeningPrice * EachBuyVolumn; // add call and put earning
+                    OptionEarned += OptionPrice * rec1.OpeningPrice * EachBuyVolumn;
+                }
+                continue;
+            }
+
+            if (CurrentHoldVolumn < 0)
+            {
+                Debug.Assert(CurrentHoldVolumn == -EachBuyVolumn);
+
+                // sell put only
+                var diff = rec2.ClosingPrice - rec1.OpeningPrice;
+
+                // put selled
+                if (diff < -OptionPrice * rec1.OpeningPrice)
+                {
+                    // buy
+                    CurrentHoldVolumn += EachBuyVolumn;
+                    double price = rec1.OpeningPrice * (1.0 - OptionPrice);
+                    CurrentBalance -= EachBuyVolumn * price;
+                    double earned = (LastPrice - price) * EachBuyVolumn;
+                    StockEarned += earned;
+                    Console.WriteLine($"Buy {EachBuyVolumn} at {price} earned {earned}");
+                }
+                else
+                {
+                    // don't sell, earn put option
+                    CurrentBalance += OptionPrice * rec1.OpeningPrice * EachBuyVolumn; // add call and put earning
+                    OptionEarned += OptionPrice * rec1.OpeningPrice * EachBuyVolumn;
+                }
+                continue;
+            }
+        }
+        Console.WriteLine($"Start Money: {StartMoney}");
+        Console.WriteLine($"Balance: {CurrentBalance}");
+        Console.WriteLine($"Option Earned: {OptionEarned}");
+        Console.WriteLine($"Stock Earned: {StockEarned}");
+        Console.WriteLine($"Current Hold Volumn: {CurrentHoldVolumn}");
+
+        OptionPrice /= 8; // reset option price
     }
 }
