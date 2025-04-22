@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "OptionRegression": {
+      "commandName": "Project",
+      "commandLineArgs": "D:\\_git3\\StockTools\\Data\\QQQ.csv"
+    }
+  }
+}
